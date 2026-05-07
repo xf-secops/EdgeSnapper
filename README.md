@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="496" height="279" alt="edgesnap" src="https://github.com/user-attachments/assets/fa88553a-78f0-4c74-b91c-ae1536ae9c58" />
+  <img width="2512" height="416" alt="Gemini_Generated_Image_jplz3zjplz3zjplz" src="https://github.com/user-attachments/assets/dc5b175c-1943-487a-9524-5e5971540ad5" />
 </p>
 <br />
 
@@ -35,8 +35,7 @@ This helps reduce:
 - Inconsistent memory regions
 - Active allocation corruption during scanning
 
-#<img width="1920" height="1080" alt="edgesnap" src="https://github.com/user-attachments/assets/da789303-b3ed-48b4-879d-d6c8329feac0" />
-
+#
 
 > [!WARNING]
 > This project is intended strictly for:
