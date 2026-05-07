@@ -47,3 +47,6 @@ This helps reduce:
 > The toolkit is designed to demonstrate the security implications of transient cleartext credential exposure in application memory.
 >
 > Unauthorized use against systems, accounts, or environments without explicit permission is prohibited.
+
+#
+Inspired by [the original research.](https://github.com/L1v1ng0ffTh3L4N/EdgeSavedPasswordsDumper)
