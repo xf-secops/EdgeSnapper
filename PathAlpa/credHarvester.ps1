@@ -13,7 +13,7 @@ if (Test-Path $file) {
         $rawBytes = $null
         
         Write-Host "[*] Step 2: Running surgical pattern analysis..." -ForegroundColor White
-        $pattern = "(\.com|\.net|\.org|\.fr|\.lol|\.ok)https\s+(\S{3,50})\s+(\S{3,100})"
+        $pattern = "(\.com|\.net|\.org|\.fr|\.lol|\.ok|\.social|\.app|\.io|\.me|\.gov)https\s+(\S{3,50})\s+(\S{3,100})"
         $matches = [regex]::Matches($content, $pattern)
         Write-Host "[+] Step 2 Complete: Found $($matches.Count) potential matches." -ForegroundColor Green
         
