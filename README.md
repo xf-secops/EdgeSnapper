@@ -46,8 +46,12 @@ This helps reduce:
 
 #
 
-> [!WARNING]
-> 
+> [!NOTE]
+> This project is a proof of concept (PoC) and is intended primarily for research and educational purposes. Users are encouraged to modify and fine-tune it according to their specific needs.
+>
+> Contributions, issues, and merge requests are welcome, but all submissions are subject to review before acceptance.
+>
+> Please note that the codebase is not fully optimized. Some filtering mechanisms are currently word-based and may omit certain results. As such, this project should not be considered a fully reliable or comprehensive solution for detecting or displaying all possible results.
 
 #
 Inspired by [the original research.](https://github.com/L1v1ng0ffTh3L4N/EdgeSavedPasswordsDumper)
