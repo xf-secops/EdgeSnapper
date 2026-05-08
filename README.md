@@ -24,6 +24,11 @@ The toolkit provides both: Live in-memory inspection & Offline forensic dump ana
 | **EdgeSnapperOnDisk** | C++ | Memory Dumper | Creates a full-process memory dump using `MiniDumpWriteDump(MiniDumpWithFullMemory)` after establishing a stable snapshot context |
 | **HarvestPro** | PowerShell | Offline Dump Parser | Loads the `.dmp` into memory using .NET file handling, applies regex extraction logic, removes telemetry noise, and deduplicates recovered credential artifacts |
 
+> [!TIP]
+> ```cpp
+> // To compile on Linux:
+> x86_64-w64-mingw32-g++ edgeSnapper.cpp -o edgeSnapper.exe -static -static-libgcc -static-libstdc++ -ldbghelp -lpsapi
+> ```
 
 ## Snapshotting Strategy
 
