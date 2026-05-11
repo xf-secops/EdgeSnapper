@@ -24,7 +24,7 @@ The toolkit provides both: Live in-memory inspection & Offline forensic dump ana
 
 | Component | Language | Operation Type | Description |
 |---|---|---|---|
-| **EdgeSnapper** | C++ | Live RAM Scanner | Enumerates the target process, captures a snapshot context using `PssCaptureSnapshot`, scans readable memory regions with `VirtualQueryEx`, and parses credential-like structures directly from live memory |
+| **EdgeSnapper** | C++ | Live RAM Scanner | Enumerates the target process, captures a point-in-time memory snapshot using `PssCaptureSnapshot`, walks virtual address regions via `PssWalkSnapshot`, and heuristically scans committed writable memory for credential-like plaintext strings. |
 | **EdgeSnapperOnDisk** | C++ | Memory Dumper | Creates a full-process memory dump using `MiniDumpWriteDump(MiniDumpWithFullMemory)` after establishing a stable snapshot context |
 | **HarvestPro** | PowerShell | Offline Dump Parser | Loads the `.dmp` into memory using .NET file handling, applies regex extraction logic, removes telemetry noise, and deduplicates recovered credential artifacts |
 
