@@ -5,6 +5,9 @@
 
 **EdgeSnapper** is a security research toolkit focused on analyzing cleartext credential persistence within Microsoft Edge process memory. The project demonstrates how credentials protected by front-end UI mechanisms (Windows Hello, biometrics, password reveal restrictions, etc.) may still transiently exist in readable process memory during runtime.
 
+> [!NOTE]
+> This supposed to be "by design" behavior has been fixed: https://www.zdnet.com/article/microsoft-edge-passwords-ram-plaintext/
+
 This raises a critical question: <b><i>what is Microsoft Edge actually protecting?</i></b> Why is the user required to enter a password on the front end to unlock their stored credentials <b>when an attacker can simply extract them in clear text from memory</b>?
 
 The toolkit provides both: Live in-memory inspection & Offline forensic dump analysis for defensive research, memory forensics, and browser security auditing.
